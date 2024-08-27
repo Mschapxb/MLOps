@@ -1,0 +1,63 @@
+name: Test MLOps Model
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out repository code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'  # Remplacez par la version de Python souhaitée
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Run model tests
+      run: |
+        python main.py
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: model-artifacts
+        path: |
+          feature_importance.png
+          residuals.png
+
+  report:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: model-artifacts
+
+    - name: Create a report
+      run: |
+        echo "## Model Test Results" > report.md
+        echo "![](feature_importance.png)" >> report.md
+        echo "![](residuals.png)" >> report.md
+
+    - name: Upload report as a comment
+      uses: actions/github-script@v5
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('report.md', 'utf8');
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: report
+          });
